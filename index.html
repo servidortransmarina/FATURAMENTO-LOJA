@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel de Faturamento — Frete</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#EEF1F4; --panel:#FFFFFF; --ink:#1B2430; --ink-soft:#5B6774;
+    --border:#DCE2E8; --amber:#E8A33D; --teal:#2F9E8F; --steel:#3B6FA0;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1360px;margin:0 auto;padding:28px 24px 60px;}
+
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+  header h1{font-size:26px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
+  header p{margin:0;color:var(--ink-soft);font-size:13.5px;}
+  .period-tag{font-family:'IBM Plex Mono',monospace;font-size:13px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--amber);padding:8px 14px;white-space:nowrap;}
+  .header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+  .btn-upload{background:var(--teal);color:#fff;border:none;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:2px;}
+  .btn-upload:hover{background:#268478;}
+  .upload-status{font-size:11px;color:var(--ink-soft);}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:22px;background:var(--panel);border:1px solid var(--border);padding:14px 16px;}
+  .filter-field{display:flex;flex-direction:column;gap:5px;min-width:170px;flex:1;}
+  .filter-field label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;}
+  select, input[type=date]{font-family:'Inter',sans-serif;font-size:13.5px;padding:8px 9px;border:1px solid var(--border);background:#fff;color:var(--ink);border-radius:2px;}
+  #btnClear{background:var(--ink);color:#fff;border:none;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;border-radius:2px;height:36px;}
+  #btnClear:hover{background:#000;}
+
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:22px;}
+  .kpi{background:var(--panel);padding:16px 14px;}
+  .kpi .lbl{font-size:10.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+  .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1.1;}
+  .kpi.accent-teal .val{color:var(--teal);}
+  .kpi.accent-amber .val{color:#B8791F;}
+
+  .grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px;}
+  .panel{background:var(--panel);border:1px solid var(--border);padding:16px 18px 10px;}
+  .panel h3{font-size:13.5px;font-weight:700;margin:0 0 2px;}
+  .panel .sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .chart-box{position:relative;height:280px;}
+  .chart-box.tall{height:420px;}
+  .full{grid-column:1/-1;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.6px;}
+  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);border-bottom:2px solid var(--ink);padding:8px 8px;cursor:pointer;user-select:none;white-space:nowrap;}
+  thead th:hover{color:var(--ink);}
+  thead th.num, tbody td.num{text-align:right;font-family:'IBM Plex Mono',monospace;}
+  tbody td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tbody tr:hover{background:#F7F9FA;}
+  .table-scroll{max-height:440px;overflow-y:auto;}
+  .row-count{font-size:11.5px;color:var(--ink-soft);margin-top:8px;}
+
+  .kit-badge{display:inline-block;background:#EEF1F4;border:1px solid var(--border);border-radius:2px;padding:2px 6px;margin:1px 3px 1px 0;font-size:11.3px;white-space:nowrap;}
+  .kit-badge b{font-family:'IBM Plex Mono',monospace;}
+  .viagem-id{font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);font-size:11.5px;}
+  .status-badge{display:inline-block;padding:3px 8px;border-radius:2px;font-size:11px;font-weight:600;}
+  .status-ok{background:#DFF3EE;color:#1B6E5F;}
+  .status-excedente{background:#FBEAEA;color:#A6362F;}
+  .status-vazio{background:#EEF1F4;color:var(--ink-soft);}
+
+  .tabs{display:flex;gap:2px;margin-bottom:0;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;}
+  .tabs-left{display:flex;gap:2px;}
+  .tab{padding:9px 16px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;border:1px solid var(--border);border-bottom:none;background:#F3F5F7;}
+  .tab.active{background:var(--panel);color:var(--ink);}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+
+  .btn-pdf-all{background:var(--steel);color:#fff;border:none;padding:9px 16px;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:2px;margin-bottom:6px;}
+  .btn-pdf-all:hover{background:#2C5883;}
+  .btn-pdf-geral{background:var(--ink);color:#fff;border:none;padding:9px 16px;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:2px;margin-bottom:6px;}
+  .btn-pdf-geral:hover{background:#000;}
+  .pdf-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn-pdf-row{background:none;border:1px solid var(--steel);color:var(--steel);font-size:11px;font-weight:600;padding:3px 9px;border-radius:2px;cursor:pointer;white-space:nowrap;}
+  .btn-pdf-row:hover{background:var(--steel);color:#fff;}
+
+  footer{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:30px;}
+
+  @media (max-width:920px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Painel de Faturamento — Frete</h1>
+      <p>Cada linha da base é 1 viagem do dia (kit de até 3 lojas) · valores por FRETE TABELA e VALOR TOTAL</p>
+    </div>
+    <div class="period-tag" id="periodTag">—</div>
+    <div class="header-actions">
+      <button class="btn-upload" onclick="document.getElementById('fileUpload').click()">Carregar planilha atualizada (.xlsx/.xlsm)</button>
+      <input type="file" id="fileUpload" accept=".xlsx,.xlsm,.xls" style="display:none">
+      <div class="upload-status" id="uploadStatus">Dados carregados na geração deste painel</div>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="filter-field">
+      <label>Loja / Destino</label>
+      <select id="fLoja"><option value="">Todas as lojas</option></select>
+    </div>
+    <div class="filter-field">
+      <label>Motorista</label>
+      <select id="fMotorista"><option value="">Todos os motoristas</option></select>
+    </div>
+    <div class="filter-field">
+      <label>De</label>
+      <input type="date" id="fDe">
+    </div>
+    <div class="filter-field">
+      <label>Até</label>
+      <input type="date" id="fAte">
+    </div>
+    <button id="btnClear">Limpar filtros</button>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi accent-teal">
+      <div class="lbl">Faturamento total</div>
+      <div class="val" id="kpiTotal">—</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Frete tabela</div>
+      <div class="val" id="kpiFrete">—</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Viagens (OTs)</div>
+      <div class="val" id="kpiViagens">—</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Lojas no kit</div>
+      <div class="val" id="kpiEntregas">—</div>
+    </div>
+    <div class="kpi accent-amber">
+      <div class="lbl">Ticket médio / viagem</div>
+      <div class="val" id="kpiTicket">—</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Lojas atendidas</div>
+      <div class="val" id="kpiLojas">—</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h3>Faturamento por loja</h3>
+      <div class="sub">Valor total atribuído a cada loja, dentro das viagens filtradas</div>
+      <div class="chart-box tall"><canvas id="chartLoja"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Evolução diária</h3>
+      <div class="sub">Soma de VALOR TOTAL e FRETE TABELA por dia, 1x por viagem</div>
+      <div class="chart-box"><canvas id="chartData"></canvas></div>
+      <h3 style="margin-top:18px;">Faturamento por motorista</h3>
+      <div class="sub">Soma de VALOR TOTAL das viagens de cada motorista</div>
+      <div class="chart-box"><canvas id="chartMotorista"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel full">
+    <div class="tabs">
+      <div class="tabs-left">
+        <div class="tab active" data-tab="viagens">Viagens (1 linha = 1 OT do dia)</div>
+        <div class="tab" data-tab="ordens">Lojas e ordens dentro das viagens</div>
+        <div class="tab" data-tab="casasbahia">Casas Bahia (Antecipações)</div>
+      </div>
+      <div class="pdf-actions">
+        <button class="btn-pdf-geral" id="btnPdfGeral">Gerar PDF geral (resumo + todos os valores no período)</button>
+        <button class="btn-pdf-all" id="btnPdfAll">Gerar PDF de cobrança (individual por viagem)</button>
+      </div>
+    </div>
+    <div style="border:1px solid var(--border);border-top:none;padding:14px 4px 6px;">
+
+      <div class="tabpanel active" id="tab-viagens">
+        <div class="sub" style="padding:0 12px;">Cada linha é uma viagem/OT do dia; o kit mostra as lojas atendidas nela</div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-k="viagem_id">Viagem</th>
+                <th data-k="data">Data</th>
+                <th data-k="motorista">Motorista</th>
+                <th>Kit (lojas · ordem)</th>
+                <th data-k="frete_tabela" class="num">Frete tabela</th>
+                <th data-k="valor_total4" class="num">Valor total</th>
+                <th>Cobrança</th>
+              </tr>
+            </thead>
+            <tbody id="tblViagens"></tbody>
+          </table>
+        </div>
+        <div class="row-count" id="rowCountViagens"></div>
+      </div>
+
+      <div class="tabpanel" id="tab-ordens">
+        <div class="sub" style="padding:0 12px;">Cada linha é uma loja dentro de uma viagem, com a ordem vinculada a ela</div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-k="viagem_id">Viagem</th>
+                <th data-k="data">Data</th>
+                <th data-k="motorista">Motorista</th>
+                <th data-k="loja">Loja</th>
+                <th data-k="destino">Destino</th>
+                <th data-k="ordem">Ordem</th>
+              </tr>
+            </thead>
+            <tbody id="tblOrdens"></tbody>
+          </table>
+        </div>
+        <div class="row-count" id="rowCountOrdens"></div>
+      </div>
+
+      <div class="tabpanel" id="tab-casasbahia">
+        <div style="padding:0 12px 12px;">
+          <div class="sub" style="margin-bottom:10px;">Antecipação semanal fixa da Casas Bahia (Anexo I) x faturamento realmente rodado no período (Anexo II)</div>
+          <div class="kpis" id="cbKpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+            <div class="kpi"><div class="lbl">Transportadora</div><div class="val" style="font-size:13px;">FILIPPINI TRANSPORTES</div></div>
+            <div class="kpi"><div class="lbl">Valor por semana (contrato)</div><div class="val" id="cbValorSemana">—</div></div>
+            <div class="kpi accent-teal"><div class="lbl">Total previsto (17 semanas)</div><div class="val" id="cbTotalPrevisto">—</div></div>
+            <div class="kpi accent-amber"><div class="lbl">Total já faturado no calendário</div><div class="val" id="cbTotalFaturado">—</div></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data-limite antecipação</th>
+                  <th>Período coberto</th>
+                  <th class="num">Valor previsto</th>
+                  <th class="num">Valor faturado (BASE)</th>
+                  <th class="num">Diferença</th>
+                  <th>Situação</th>
+                </tr>
+              </thead>
+              <tbody id="tblCasasBahia"></tbody>
+            </table>
+          </div>
+          <div class="sub" style="margin-top:10px;">* Se não houver liquidação bancária em 25/12/2026, o último pagamento deve ser feito no dia útil imediatamente anterior. Excedentes precisam de aprovação em <b>suprimentos.indiretos@casasbahia.com.br</b>.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>Painel gerado a partir da base de faturamento de frete · valores em R$ · 1 linha da planilha = 1 viagem do dia</footer>
+</div>
+
+<script>
+/* =====================================================================
+   DADOS EMBUTIDOS — 50 viagens reais da aba BASE
+   ===================================================================== */
+let VIAGENS = [
+{"viagem_id":1,"data":"2026-08-31","motorista":"JOSE CESAR DA SILVA FILHO","kit":[{"loja":372,"destino":"DIVINOPOLIS 2 - MG","ordem":2966676},{"loja":1205,"destino":"DIVINÓPOLIS - MG","ordem":2966675}],"frete_tabela":631.76,"valor_total4":667.58},
+{"viagem_id":2,"data":"2026-08-31","motorista":"KELYSSON DINIZ RODRIGUES","kit":[{"loja":1965,"destino":"SHOPPING SETE LAGOAS - MG","ordem":2966679},{"loja":288,"destino":"SETE LAGOAS 1 - MG","ordem":2966680},{"loja":1349,"destino":"SETE LAGOAS - MG","ordem":null}],"frete_tabela":273.63,"valor_total4":307.07},
+{"viagem_id":3,"data":"2026-08-31","motorista":"JOAO BATISTA PINTO","kit":[{"loja":1819,"destino":"CONTAGEM - MG","ordem":2966683},{"loja":1740,"destino":"IBIRITÉ - MG","ordem":2966682}],"frete_tabela":407.73,"valor_total4":479.89},
+{"viagem_id":4,"data":"2026-08-31","motorista":"RAIMUNDO BESERRA DOS SANTOS","kit":[{"loja":1332,"destino":"SANTA LUZIA - MG","ordem":2966685},{"loja":538,"destino":"PEDRO LEOPOLDO - MG","ordem":2966686}],"frete_tabela":948.25,"valor_total4":979.40},
+{"viagem_id":5,"data":"2026-08-31","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1732,"destino":"RIBEIRÃO DAS NEVES - MG","ordem":2966688},{"loja":486,"destino":"BELO HORIZONTE - MG","ordem":2966689}],"frete_tabela":398.21,"valor_total4":504.72},
+{"viagem_id":6,"data":"2026-09-02","motorista":"CLAUBER VIEIRA DOS SANTOS","kit":[{"loja":1026,"destino":"BELO HORIZONTE - MG","ordem":2967308},{"loja":1356,"destino":"BELO HORIZONTE - MG","ordem":null}],"frete_tabela":807.46,"valor_total4":848.91},
+{"viagem_id":7,"data":"2026-09-02","motorista":"JOAO BATISTA PINTO","kit":[{"loja":366,"destino":"NOVA LIMA - MG","ordem":2967311},{"loja":514,"destino":"BELO HORIZONTE - MG","ordem":2967312}],"frete_tabela":696.67,"valor_total4":709.05},
+{"viagem_id":8,"data":"2026-09-02","motorista":"WARLEY SILVA PINTO","kit":[{"loja":122,"destino":"BELO HORIZONTE - MG","ordem":2967314},{"loja":1238,"destino":"BELO HORIZONTE - MG","ordem":2967315}],"frete_tabela":640.27,"valor_total4":653.66},
+{"viagem_id":9,"data":"2026-09-02","motorista":"RONDNEI CANHESTRO FERREIRA","kit":[{"loja":1159,"destino":"BETIM - MG","ordem":2967316},{"loja":1682,"destino":"SHOPPING METROPOLITAN GARDEN - MG","ordem":2967317}],"frete_tabela":595.49,"valor_total4":652.61},
+{"viagem_id":10,"data":"2026-09-02","motorista":"RAIMUNDO BESERRA DOS SANTOS","kit":[{"loja":1681,"destino":"BELO HORIZONTE - MG","ordem":null},{"loja":1327,"destino":"BELO HORIZONTE - MG","ordem":2967319}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":11,"data":"2026-09-02","motorista":"ADILSON SANTOS CARVALHO","kit":[{"loja":1819,"destino":"CONTAGEM - MG","ordem":2967322},{"loja":1740,"destino":"IBIRITÉ - MG","ordem":2967321}],"frete_tabela":682.81,"valor_total4":700.69},
+{"viagem_id":12,"data":"2026-09-02","motorista":"KELYSSON DINIZ RODRIGUES","kit":[{"loja":1965,"destino":"SHOPPING SETE LAGOAS - MG","ordem":2967323},{"loja":288,"destino":"SETE LAGOAS 1 - MG","ordem":2967324}],"frete_tabela":481.11,"valor_total4":532.24},
+{"viagem_id":13,"data":"2026-09-02","motorista":"VITOR CÉSAR NICACIO DOS SANTOS","kit":[{"loja":1824,"destino":"MARIANA 2 - MG","ordem":2967325}],"frete_tabela":1590.76,"valor_total4":1640.52},
+{"viagem_id":14,"data":"2026-09-02","motorista":"JOSE CESAR DA SILVA FILHO","kit":[{"loja":1205,"destino":"DIVINÓPOLIS - MG","ordem":2967327}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":15,"data":"2026-09-02","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1349,"destino":"SETE LAGOAS - MG","ordem":null}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":16,"data":"2026-09-02","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1332,"destino":"SANTA LUZIA - MG","ordem":2967330}],"frete_tabela":1431.70,"valor_total4":1454.28},
+{"viagem_id":17,"data":"2026-09-03","motorista":"WARLEY SILVA PINTO","kit":[{"loja":486,"destino":"BELO HORIZONTE - MG","ordem":2967663}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":18,"data":"2026-09-03","motorista":"JOSE CESAR DA SILVA FILHO","kit":[{"loja":1731,"destino":"SHOPPING CONTAGEM - MG","ordem":2967665}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":19,"data":"2026-09-03","motorista":"RONDNEI CANHESTRO FERREIRA","kit":[{"loja":1552,"destino":"BELO HORIZONTE - MG","ordem":2967666},{"loja":525,"destino":"BELO HORIZONTE - MG","ordem":2967667}],"frete_tabela":762.65,"valor_total4":819.04},
+{"viagem_id":20,"data":"2026-09-03","motorista":"JOAO BATISTA PINTO","kit":[{"loja":372,"destino":"DIVINOPOLIS 2 - MG","ordem":2967668}],"frete_tabela":1400,"valor_total4":1459.41},
+{"viagem_id":21,"data":"2026-09-03","motorista":"CLEIDISON DA SILVA RODRIGUES","kit":[{"loja":1741,"destino":"NOVA SERRANA - MG","ordem":2967669}],"frete_tabela":1400,"valor_total4":1476.16},
+{"viagem_id":22,"data":"2026-09-03","motorista":"VITOR CÉSAR NICACIO DOS SANTOS","kit":[{"loja":1421,"destino":"LAVRAS - MG","ordem":2967671}],"frete_tabela":2458.64,"valor_total4":2548.08},
+{"viagem_id":23,"data":"2026-09-03","motorista":"ADILSON SANTOS CARVALHO","kit":[{"loja":1332,"destino":"SANTA LUZIA - MG","ordem":2967673},{"loja":538,"destino":"PEDRO LEOPOLDO - MG","ordem":2967674}],"frete_tabela":458.99,"valor_total4":548.29},
+{"viagem_id":24,"data":"2026-09-03","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1205,"destino":"DIVINÓPOLIS - MG","ordem":2967675}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":25,"data":"2026-09-03","motorista":"CLAUBER VIEIRA DOS SANTOS","kit":[{"loja":1732,"destino":"RIBEIRÃO DAS NEVES - MG","ordem":2967676}],"frete_tabela":1431.70,"valor_total4":1466.85},
+{"viagem_id":26,"data":"2026-09-03","motorista":"KELYSSON DINIZ RODRIGUES","kit":[{"loja":1418,"destino":"ALIPIO DE MELO - MG","ordem":2967677}],"frete_tabela":1138.80,"valor_total4":1201.27},
+{"viagem_id":27,"data":"2026-09-04","motorista":"JOSE CESAR DA SILVA FILHO","kit":[{"loja":1965,"destino":"SHOPPING SETE LAGOAS - MG","ordem":2968046},{"loja":288,"destino":"SETE LAGOAS 1 - MG","ordem":2968047},{"loja":1349,"destino":"SETE LAGOAS - MG","ordem":null}],"frete_tabela":427.24,"valor_total4":457.71},
+{"viagem_id":28,"data":"2026-09-04","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1681,"destino":"BELO HORIZONTE - MG","ordem":null},{"loja":1327,"destino":"BELO HORIZONTE - MG","ordem":2968049}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":29,"data":"2026-09-04","motorista":"CLAUBER VIEIRA DOS SANTOS","kit":[{"loja":1332,"destino":"SANTA LUZIA - MG","ordem":2968050},{"loja":538,"destino":"PEDRO LEOPOLDO - MG","ordem":2968051}],"frete_tabela":715.67,"valor_total4":803.01},
+{"viagem_id":30,"data":"2026-09-04","motorista":"JOAO BATISTA PINTO","kit":[{"loja":366,"destino":"NOVA LIMA - MG","ordem":2968052},{"loja":514,"destino":"BELO HORIZONTE - MG","ordem":2968053}],"frete_tabela":924.77,"valor_total4":947.17},
+{"viagem_id":31,"data":"2026-09-04","motorista":"CLEIDISON DA SILVA RODRIGUES","kit":[{"loja":1246,"destino":"BELO HORIZONTE - MG","ordem":2968054}],"frete_tabela":1268.08,"valor_total4":1293.45},
+{"viagem_id":32,"data":"2026-09-04","motorista":"RAIMUNDO BESERRA DOS SANTOS","kit":[{"loja":1824,"destino":"MARIANA 2 - MG","ordem":2968067}],"frete_tabela":1590.76,"valor_total4":1625.56},
+{"viagem_id":33,"data":"2026-09-04","motorista":"RONDNEI CANHESTRO FERREIRA","kit":[{"loja":263,"destino":"BETIM PRAÇA - MG","ordem":2968057}],"frete_tabela":1158.80,"valor_total4":1224.03},
+{"viagem_id":34,"data":"2026-09-04","motorista":"ADILSON SANTOS CARVALHO","kit":[{"loja":1026,"destino":"BELO HORIZONTE - MG","ordem":2968058},{"loja":1356,"destino":"BELO HORIZONTE - MG","ordem":null}],"frete_tabela":556.30,"valor_total4":610.51},
+{"viagem_id":35,"data":"2026-09-04","motorista":"WARLEY SILVA PINTO","kit":[{"loja":1215,"destino":"BELO HORIZONTE - MG","ordem":2968060}],"frete_tabela":1268.08,"valor_total4":1361.13},
+{"viagem_id":36,"data":"2026-09-04","motorista":"VITOR CÉSAR NICACIO DOS SANTOS","kit":[{"loja":1740,"destino":"IBIRITÉ - MG","ordem":null}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":37,"data":"2026-09-04","motorista":"KELYSSON DINIZ RODRIGUES","kit":[{"loja":590,"destino":"CONTAGEM 2 - MG","ordem":null}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":38,"data":"2026-09-09","motorista":"KELYSSON DINIZ RODRIGUES","kit":[{"loja":1965,"destino":"SHOPPING SETE LAGOAS - MG","ordem":2969401},{"loja":288,"destino":"SETE LAGOAS 1 - MG","ordem":2969402},{"loja":1349,"destino":"SETE LAGOAS - MG","ordem":null}],"frete_tabela":188.34,"valor_total4":210.89},
+{"viagem_id":39,"data":"2026-09-09","motorista":"WARLEY SILVA PINTO","kit":[{"loja":122,"destino":"BELO HORIZONTE - MG","ordem":2969404},{"loja":1238,"destino":"BELO HORIZONTE - MG","ordem":2969405}],"frete_tabela":1113.81,"valor_total4":1166.91},
+{"viagem_id":40,"data":"2026-09-09","motorista":"RONDNEI CANHESTRO FERREIRA","kit":[{"loja":1159,"destino":"BETIM - MG","ordem":2969406},{"loja":1682,"destino":"SHOPPING METROPOLITAN GARDEN - MG","ordem":2969407}],"frete_tabela":1071.39,"valor_total4":1097.58},
+{"viagem_id":41,"data":"2026-09-09","motorista":"ADILSON SANTOS CARVALHO","kit":[{"loja":1819,"destino":"CONTAGEM - MG","ordem":2969409},{"loja":1740,"destino":"IBIRITÉ - MG","ordem":2969408}],"frete_tabela":76.05,"valor_total4":118.91},
+{"viagem_id":42,"data":"2026-09-09","motorista":"CLAUBER VIEIRA DOS SANTOS","kit":[{"loja":1681,"destino":"BELO HORIZONTE - MG","ordem":null},{"loja":1327,"destino":"BELO HORIZONTE - MG","ordem":2969412}],"frete_tabela":0,"valor_total4":0},
+{"viagem_id":43,"data":"2026-09-09","motorista":"RAIMUNDO BESERRA DOS SANTOS","kit":[{"loja":366,"destino":"NOVA LIMA - MG","ordem":2969413},{"loja":514,"destino":"BELO HORIZONTE - MG","ordem":2969414}],"frete_tabela":1272.64,"valor_total4":1311.90},
+{"viagem_id":44,"data":"2026-09-09","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1824,"destino":"MARIANA 2 - MG","ordem":2969415}],"frete_tabela":1336.25,"valor_total4":1346.69},
+{"viagem_id":45,"data":"2026-09-09","motorista":"JOSE CESAR DA SILVA FILHO","kit":[{"loja":1026,"destino":"BELO HORIZONTE - MG","ordem":2969417},{"loja":1356,"destino":"BELO HORIZONTE - MG","ordem":null}],"frete_tabela":513.39,"valor_total4":525.98},
+{"viagem_id":46,"data":"2026-09-10","motorista":"CLEBER DE CARVALHO FONSECA","kit":[{"loja":1344,"destino":"CONTAGEM 3 - MG","ordem":2969896},{"loja":590,"destino":"CONTAGEM 2 - MG","ordem":2969895}],"frete_tabela":845.39,"valor_total4":878.09},
+{"viagem_id":47,"data":"2026-09-10","motorista":"RAIMUNDO BESERRA DOS SANTOS","kit":[{"loja":374,"destino":"JOÃO MONLEVADE - MG","ordem":2969897}],"frete_tabela":1990.76,"valor_total4":2032.38},
+{"viagem_id":48,"data":"2026-09-10","motorista":"CLAUBER VIEIRA DOS SANTOS","kit":[{"loja":1694,"destino":"VESPASIANO - MG","ordem":2969898},{"loja":1779,"destino":"LAGOA SANTA - MG","ordem":2969899}],"frete_tabela":745.47,"valor_total4":761.18},
+{"viagem_id":49,"data":"2026-09-10","motorista":"CLEIDISON DA SILVA RODRIGUES","kit":[{"loja":1636,"destino":"ITABIRA - MG","ordem":2969936}],"frete_tabela":1908.94,"valor_total4":1949.46},
+{"viagem_id":50,"data":"2026-09-10","motorista":"WARLEY SILVA PINTO","kit":[{"loja":1498,"destino":"BELO HORIZONTE - MG","ordem":2969937}],"frete_tabela":1268.08,"valor_total4":1322.16}
+];
+
+/* LEGS é gerado a partir de VIAGENS (não precisa ser digitado à mão) */
+function gerarLegsDeViagens(viagens){
+  const legs = [];
+  viagens.forEach(v=>{
+    v.kit.forEach(item=>{
+      legs.push({
+        viagem_id:v.viagem_id, data:v.data, motorista:v.motorista,
+        loja:item.loja, destino:item.destino, ordem:item.ordem
+      });
+    });
+  });
+  return legs;
+}
+let LEGS = gerarLegsDeViagens(VIAGENS);
+
+const VALOR_SEMANA_CB = 58459.56;
+const CALENDARIO_CB = [
+  ["2026-09-04","2026-09-07","2026-09-13"],
+  ["2026-09-11","2026-09-14","2026-09-20"],
+  ["2026-09-18","2026-09-21","2026-09-27"],
+  ["2026-09-25","2026-09-28","2026-10-04"],
+  ["2026-10-02","2026-10-05","2026-10-11"],
+  ["2026-10-09","2026-10-12","2026-10-18"],
+  ["2026-10-16","2026-10-19","2026-10-25"],
+  ["2026-10-23","2026-10-26","2026-11-01"],
+  ["2026-10-30","2026-11-02","2026-11-08"],
+  ["2026-11-06","2026-11-09","2026-11-15"],
+  ["2026-11-13","2026-11-16","2026-11-22"],
+  ["2026-11-20","2026-11-23","2026-11-29"],
+  ["2026-11-27","2026-11-30","2026-12-06"],
+  ["2026-12-04","2026-12-07","2026-12-13"],
+  ["2026-12-11","2026-12-14","2026-12-20"],
+  ["2026-12-18","2026-12-21","2026-12-27"],
+  ["2026-12-25","2026-12-28","2026-12-31"]
+];
+
+const fmtBRL = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmtDate = d => { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
+const uniqueSorted = arr => [...new Set(arr)].sort((a,b)=> a>b?1:a<b?-1:0);
+
+let sortKeyV='viagem_id', sortDirV=1;
+let sortKeyO='viagem_id', sortDirO=1;
+let charts = {};
+
+function populateFilters(){
+  document.getElementById('fLoja').innerHTML = '<option value="">Todas as lojas</option>';
+  document.getElementById('fMotorista').innerHTML = '<option value="">Todos os motoristas</option>';
+
+  const lojas = uniqueSorted(LEGS.map(r=>r.loja));
+  const lojaSel = document.getElementById('fLoja');
+  lojas.forEach(l=>{
+    const dest = LEGS.find(r=>r.loja===l).destino;
+    const opt = document.createElement('option');
+    opt.value = l; opt.textContent = `${l} — ${dest}`;
+    lojaSel.appendChild(opt);
+  });
+  const motoristas = uniqueSorted(VIAGENS.map(r=>r.motorista));
+  const motSel = document.getElementById('fMotorista');
+  motoristas.forEach(m=>{
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    motSel.appendChild(opt);
+  });
+  const dates = uniqueSorted(VIAGENS.map(r=>r.data));
+  document.getElementById('fDe').value = dates[0];
+  document.getElementById('fAte').value = dates[dates.length-1];
+  document.getElementById('fDe').min = dates[0]; document.getElementById('fDe').max = dates[dates.length-1];
+  document.getElementById('fAte').min = dates[0]; document.getElementById('fAte').max = dates[dates.length-1];
+  document.getElementById('periodTag').textContent = `${fmtDate(dates[0])} → ${fmtDate(dates[dates.length-1])}`;
+}
+
+function getFilteredViagens(){
+  const loja = document.getElementById('fLoja').value;
+  const mot = document.getElementById('fMotorista').value;
+  const de = document.getElementById('fDe').value;
+  const ate = document.getElementById('fAte').value;
+  return VIAGENS.filter(v=>
+    (!mot || v.motorista===mot) &&
+    (!de || v.data>=de) &&
+    (!ate || v.data<=ate) &&
+    (!loja || v.kit.some(k=>String(k.loja)===loja))
+  );
+}
+
+function getFilteredLegs(viagemIds){
+  const loja = document.getElementById('fLoja').value;
+  return LEGS.filter(l => viagemIds.has(l.viagem_id) && (!loja || String(l.loja)===loja));
+}
+
+function destroyChart(id){ if(charts[id]) charts[id].destroy(); }
+
+function renderCasasBahia(){
+  document.getElementById('cbValorSemana').textContent = fmtBRL(VALOR_SEMANA_CB);
+  document.getElementById('cbTotalPrevisto').textContent = fmtBRL(VALOR_SEMANA_CB * CALENDARIO_CB.length);
+
+  let totalFaturadoCalendario = 0;
+  const linhas = CALENDARIO_CB.map(([dlim, dini, dfim])=>{
+    const faturado = VIAGENS.filter(v => v.data >= dini && v.data <= dfim)
+                             .reduce((s,v)=>s+v.valor_total4, 0);
+    totalFaturadoCalendario += faturado;
+    const diff = faturado - VALOR_SEMANA_CB;
+    let status, cls;
+    if(faturado === 0){ status='SEM FATURAMENTO NO PERÍODO'; cls='status-vazio'; }
+    else if(diff > 0){ status='EXCEDENTE'; cls='status-excedente'; }
+    else { status='DENTRO DO CONTRATADO'; cls='status-ok'; }
+    return {dlim, dini, dfim, faturado, diff, status, cls};
+  });
+
+  document.getElementById('cbTotalFaturado').textContent = fmtBRL(totalFaturadoCalendario);
+
+  document.getElementById('tblCasasBahia').innerHTML = linhas.map(l=>`
+    <tr>
+      <td>${fmtDate(l.dlim)}</td>
+      <td>${fmtDate(l.dini)} a ${fmtDate(l.dfim)}</td>
+      <td class="num">${fmtBRL(VALOR_SEMANA_CB)}</td>
+      <td class="num">${fmtBRL(l.faturado)}</td>
+      <td class="num">${fmtBRL(l.diff)}</td>
+      <td><span class="status-badge ${l.cls}">${l.status}</span></td>
+    </tr>`).join('');
+}
+
+function buildFromWorkbook(workbook){
+  const baseSheet = workbook.Sheets['BASE'];
+  if(!baseSheet){ alert('Não encontrei uma aba chamada "BASE" nesta planilha.'); return null; }
+  const rows = XLSX.utils.sheet_to_json(baseSheet, {header:1, raw:true, defval:null});
+
+  const freteSheet = workbook.Sheets['TABELA DE FRETE'];
+  const destinoMap = {};
+  if(freteSheet){
+    const frows = XLSX.utils.sheet_to_json(freteSheet, {header:1, raw:true, defval:null});
+    for(let i=1;i<frows.length;i++){
+      const r = frows[i];
+      if(r && r[0]!=null) destinoMap[Number(r[0])] = r[1];
+    }
+  }
+
+  const viagens = [];
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r || r[0]==null) continue;
+    let dataStr;
+    if(r[0] instanceof Date){
+      dataStr = r[0].toISOString().slice(0,10);
+    } else if(typeof r[0]==='number'){
+      const d = XLSX.SSF.parse_date_code(r[0]);
+      dataStr = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+    } else { continue; }
+    const motorista = String(r[1]||'').trim();
+    const kit = [];
+    // A:0 DATA, B:1 MOTORISTA, C:2 LOJA1, D:3 LOJA2, E:4 CLUSTER, F:5 LOJA3, G:6 CLUSTER2,
+    // H:7 CUB TOTAL, I:8 ORDEM, J:9 VALOR FRETE, K:10 VALOR TOTAL, L:11 ORDEM2, M:12 VALOR FRETE2,
+    // N:13 VALOR TOTAL2, O:14 ORDEM3, P:15 VALOR FRETE3, Q:16 VALOR TOTAL3
+    const pares = [
+      [r[2], r[8]],   // loja1, ordem1
+      [r[3], r[11]],  // loja2, ordem2
+      [r[5], r[14]]   // loja3, ordem3
+    ];
+    pares.forEach(([loja, ordem])=>{
+      if(loja!=null && loja!==''){
+        const lojaNum = Number(loja);
+        kit.push({loja:lojaNum, destino:destinoMap[lojaNum]||'-', ordem: ordem!=null ? Number(ordem) : null});
+      }
+    });
+    if(!kit.length) continue;
+    // Frete/total da viagem: usa J/K quando presentes; senão soma M+N e/ou P+Q se existirem; senão 0
+    const freteBase = (r[9]!=null && r[9]!=='') ? Number(r[9]) : 0;
+    const totalBase  = (r[10]!=null && r[10]!=='') ? Number(r[10]) : 0;
+    const frete2 = (r[12]!=null && r[12]!=='') ? Number(r[12]) : 0;
+    const total2 = (r[13]!=null && r[13]!=='') ? Number(r[13]) : 0;
+    const frete3 = (r[15]!=null && r[15]!=='') ? Number(r[15]) : 0;
+    const total3 = (r[16]!=null && r[16]!=='') ? Number(r[16]) : 0;
+
+    const freteTabela = freteBase + frete2 + frete3;
+    const valorTotal4 = totalBase + total2 + total3;
+
+    viagens.push({viagem_id:viagens.length+1, data:dataStr, motorista, kit,
+      frete_tabela: freteTabela, valor_total4: valorTotal4});
+  }
+  if(!viagens.length){ alert('Não encontrei linhas de dados na aba "BASE" (a partir da linha 2).'); return null; }
+  return viagens;
+}
+
+document.getElementById('fileUpload').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array', cellDates:true});
+      const novasViagens = buildFromWorkbook(wb);
+      if(!novasViagens) return;
+      VIAGENS = novasViagens;
+      LEGS = gerarLegsDeViagens(VIAGENS);
+      document.getElementById('uploadStatus').textContent = `Atualizado de "${file.name}" às ${new Date().toLocaleTimeString('pt-BR')}`;
+      populateFilters();
+      render();
+    }catch(err){
+      console.error(err);
+      alert('Não consegui ler essa planilha: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function drawViagemDoc(doc, viagem, y0){
+  const y = y0 || 18;
+  doc.setFontSize(14); doc.setFont(undefined,'bold');
+  doc.text('COBRANÇA DE FRETE', 14, y);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(`Viagem: #${viagem.viagem_id}`, 14, y+8);
+  doc.text(`Data: ${fmtDate(viagem.data)}`, 14, y+14);
+  doc.text(`Motorista: ${viagem.motorista}`, 14, y+20);
+
+  doc.autoTable({
+    startY: y+26,
+    head: [['Loja','Destino','Ordem']],
+    body: viagem.kit.map(k=>[String(k.loja), k.destino, String(k.ordem ?? '-')]),
+    styles:{fontSize:9, cellPadding:3},
+    headStyles:{fillColor:[59,111,160], textColor:255},
+    margin:{left:14, right:14}
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(`Frete tabela: ${fmtBRL(viagem.frete_tabela)}`, 14, finalY);
+  doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text(`VALOR TOTAL A COBRAR: ${fmtBRL(viagem.valor_total4)}`, 14, finalY+9);
+  doc.setFont(undefined,'normal');
+  return finalY+9;
+}
+
+function gerarPdfViagem(id){
+  const viagem = VIAGENS.find(v=>v.viagem_id===id);
+  if(!viagem) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  drawViagemDoc(doc, viagem);
+  doc.save(`cobranca_viagem_${id}_${viagem.data}.pdf`);
+}
+
+function gerarPdfTodas(){
+  const viagens = getFilteredViagens();
+  if(!viagens.length){ alert('Nenhuma viagem no filtro atual.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  viagens.forEach((v,i)=>{
+    if(i>0) doc.addPage();
+    drawViagemDoc(doc, v);
+  });
+  const de = document.getElementById('fDe').value, ate = document.getElementById('fAte').value;
+  doc.save(`cobranca_viagens_${de}_a_${ate}.pdf`);
+}
+
+function gerarPdfGeral(){
+  const viagens = getFilteredViagens();
+  if(!viagens.length){ alert('Nenhuma viagem no filtro atual.'); return; }
+  const viagemIds = new Set(viagens.map(v=>v.viagem_id));
+  const legs = getFilteredLegs(viagemIds);
+  const de = document.getElementById('fDe').value, ate = document.getElementById('fAte').value;
+
+  const totalFat = viagens.reduce((s,v)=>s+v.valor_total4,0);
+  const totalFrete = viagens.reduce((s,v)=>s+v.frete_tabela,0);
+  const nViagens = viagens.length;
+  const nLojas = uniqueSorted(legs.map(l=>l.loja)).length;
+  const ticket = nViagens ? totalFat/nViagens : 0;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFontSize(15); doc.setFont(undefined,'bold');
+  doc.text('RELATÓRIO GERAL DE FATURAMENTO — FRETE', 14, 18);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text(`Período: ${fmtDate(de)} a ${fmtDate(ate)}`, 14, 25);
+  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 30);
+
+  doc.autoTable({
+    startY: 36,
+    theme:'plain',
+    styles:{fontSize:9.5, cellPadding:2},
+    body:[
+      ['Viagens (OTs)', String(nViagens), 'Lojas atendidas', String(nLojas)],
+      ['Frete tabela', fmtBRL(totalFrete), 'Ticket médio/viagem', fmtBRL(ticket)],
+      ['VALOR TOTAL', fmtBRL(totalFat), '', '']
+    ],
+    columnStyles:{0:{fontStyle:'bold'},2:{fontStyle:'bold'}},
+  });
+
+  const byLoja = new Map();
+  legs.forEach(l=>{
+    if(!byLoja.has(l.loja)) byLoja.set(l.loja, {n:0, destino:l.destino});
+    byLoja.get(l.loja).n += 1;
+  });
+  const lojaKeys = [...byLoja.keys()];
+  doc.setFontSize(11); doc.setFont(undefined,'bold');
+  doc.text('Resumo por loja', 14, doc.lastAutoTable.finalY + 10);
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 14,
+    head:[['Loja','Destino','Qtd. viagens']],
+    body: lojaKeys.map(k=>{ const o=byLoja.get(k); return [String(k), o.destino, String(o.n)]; }),
+    styles:{fontSize:8.5, cellPadding:2.5},
+    headStyles:{fillColor:[59,111,160], textColor:255},
+    margin:{left:14,right:14}
+  });
+
+  const byMot = new Map();
+  viagens.forEach(v=>{
+    if(!byMot.has(v.motorista)) byMot.set(v.motorista, {total:0, frete:0, n:0});
+    const o = byMot.get(v.motorista); o.total+=v.valor_total4; o.frete+=v.frete_tabela; o.n+=1;
+  });
+  const motKeys = [...byMot.keys()].sort((a,b)=>byMot.get(b).total-byMot.get(a).total);
+  doc.setFontSize(11); doc.setFont(undefined,'bold');
+  doc.text('Resumo por motorista', 14, doc.lastAutoTable.finalY + 10);
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 14,
+    head:[['Motorista','Qtd. viagens','Frete tabela','Valor total']],
+    body: motKeys.map(k=>{ const o=byMot.get(k); return [k.trim(), String(o.n), fmtBRL(o.frete), fmtBRL(o.total)]; }),
+    styles:{fontSize:8.5, cellPadding:2.5},
+    headStyles:{fillColor:[232,163,61], textColor:255},
+    margin:{left:14,right:14}
+  });
+
+  doc.addPage();
+  doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text('Todas as viagens do período', 14, 18);
+  doc.setFontSize(9); doc.setFont(undefined,'normal');
+  doc.text(`${fmtDate(de)} a ${fmtDate(ate)} · ${nViagens} viagem(ns)`, 14, 24);
+  doc.autoTable({
+    startY: 30,
+    head:[['Viagem','Data','Motorista','Kit (lojas)','Frete tabela','Valor total']],
+    body: [...viagens].sort((a,b)=> a.data===b.data ? a.viagem_id-b.viagem_id : a.data.localeCompare(b.data)).map(v=>[
+      `#${v.viagem_id}`, fmtDate(v.data), v.motorista.trim(),
+      v.kit.map(k=>`${k.loja}${k.ordem?` (ord ${k.ordem})`:''}`).join(', '),
+      fmtBRL(v.frete_tabela), fmtBRL(v.valor_total4)
+    ]),
+    styles:{fontSize:7.8, cellPadding:2.2, overflow:'linebreak'},
+    headStyles:{fillColor:[27,36,48], textColor:255},
+    columnStyles:{3:{cellWidth:60}},
+    margin:{left:14,right:14}
+  });
+
+  doc.setFontSize(11); doc.setFont(undefined,'bold');
+  doc.text(`VALOR TOTAL GERAL DO PERÍODO: ${fmtBRL(totalFat)}`, 14, doc.lastAutoTable.finalY + 10);
+
+  doc.save(`relatorio_geral_faturamento_${de}_a_${ate}.pdf`);
+}
+
+function render(){
+  const viagens = getFilteredViagens();
+  const viagemIds = new Set(viagens.map(v=>v.viagem_id));
+  const legs = getFilteredLegs(viagemIds);
+
+  const totalFat = viagens.reduce((s,v)=>s+v.valor_total4,0);
+  const totalFrete = viagens.reduce((s,v)=>s+v.frete_tabela,0);
+  const nViagens = viagens.length;
+  const nEntregasKit = legs.length;
+  const nLojas = uniqueSorted(legs.map(l=>l.loja)).length;
+  const ticket = nViagens ? totalFat/nViagens : 0;
+
+  document.getElementById('kpiTotal').textContent = fmtBRL(totalFat);
+  document.getElementById('kpiFrete').textContent = fmtBRL(totalFrete);
+  document.getElementById('kpiViagens').textContent = nViagens;
+  document.getElementById('kpiEntregas').textContent = nEntregasKit;
+  document.getElementById('kpiTicket').textContent = fmtBRL(ticket);
+  document.getElementById('kpiLojas').textContent = nLojas;
+
+  const byLoja = new Map();
+  legs.forEach(l=>{
+    if(!byLoja.has(l.loja)) byLoja.set(l.loja, {n:0, destino:l.destino});
+    byLoja.get(l.loja).n += 1;
+  });
+  // valor proporcional por loja: distribui o valor_total4 da viagem igualmente entre as lojas do kit
+  const valorPorLoja = new Map();
+  viagens.forEach(v=>{
+    const partes = v.kit.length || 1;
+    const fatia = v.valor_total4 / partes;
+    v.kit.forEach(k=>{
+      valorPorLoja.set(k.loja, (valorPorLoja.get(k.loja)||0) + fatia);
+    });
+  });
+  const lojaKeys = [...byLoja.keys()].sort((a,b)=>(valorPorLoja.get(b)||0)-(valorPorLoja.get(a)||0));
+  destroyChart('loja');
+  charts.loja = new Chart(document.getElementById('chartLoja'), {
+    type:'bar',
+    data:{ labels: lojaKeys.map(k=>`${k}`),
+      datasets:[{ data: lojaKeys.map(k=>valorPorLoja.get(k)||0), backgroundColor:'#2F9E8F', borderRadius:1, barPercentage:0.75 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:(items)=> `Loja ${items[0].label} — ${byLoja.get(Number(items[0].label)).destino}`,
+          label:(item)=> fmtBRL(item.raw) }}},
+      scales:{ x:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')},grid:{color:'#EEF1F4'}}, y:{ticks:{font:{size:10.5}},grid:{display:false}} } }
+  });
+
+  const byData = new Map();
+  viagens.forEach(v=>{
+    if(!byData.has(v.data)) byData.set(v.data, {total:0, frete:0});
+    const o = byData.get(v.data); o.total += v.valor_total4; o.frete += v.frete_tabela;
+  });
+  const dateKeys = [...byData.keys()].sort();
+  destroyChart('data');
+  charts.data = new Chart(document.getElementById('chartData'), {
+    type:'line',
+    data:{ labels: dateKeys.map(fmtDate),
+      datasets:[
+        {label:'Valor total', data: dateKeys.map(k=>byData.get(k).total), borderColor:'#2F9E8F', backgroundColor:'#2F9E8F', tension:.25, pointRadius:3},
+        {label:'Frete tabela', data: dateKeys.map(k=>byData.get(k).frete), borderColor:'#3B6FA0', backgroundColor:'#3B6FA0', tension:.25, pointRadius:3, borderDash:[4,3]}
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{callbacks:{label:(item)=>`${item.dataset.label}: ${fmtBRL(item.raw)}`}}},
+      scales:{ y:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')},grid:{color:'#EEF1F4'}}, x:{grid:{display:false}} } }
+  });
+
+  const byMot = new Map();
+  viagens.forEach(v=>{
+    if(!byMot.has(v.motorista)) byMot.set(v.motorista, 0);
+    byMot.set(v.motorista, byMot.get(v.motorista)+v.valor_total4);
+  });
+  const motKeys = [...byMot.keys()].sort((a,b)=>byMot.get(b)-byMot.get(a));
+  destroyChart('mot');
+  charts.mot = new Chart(document.getElementById('chartMotorista'), {
+    type:'bar',
+    data:{ labels: motKeys.map(k=>k.trim()),
+      datasets:[{ data: motKeys.map(k=>byMot.get(k)), backgroundColor:'#E8A33D', borderRadius:1, barPercentage:0.7 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:(item)=>fmtBRL(item.raw)}}},
+      scales:{ x:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')},grid:{color:'#EEF1F4'}}, y:{ticks:{font:{size:10.5}},grid:{display:false}} } }
+  });
+
+  const sortedV = [...viagens].sort((a,b)=>{
+    let va=a[sortKeyV], vb=b[sortKeyV];
+    if(typeof va==='string') return sortDirV*va.localeCompare(vb);
+    return sortDirV*(va-vb);
+  });
+  document.getElementById('tblViagens').innerHTML = sortedV.map(v=>`
+    <tr>
+      <td class="viagem-id">#${v.viagem_id}</td>
+      <td>${fmtDate(v.data)}</td>
+      <td>${v.motorista}</td>
+      <td>${v.kit.map(k=>`<span class="kit-badge"><b>${k.loja}</b> ${k.destino.split(' - ')[0]}${k.ordem?` · ord ${k.ordem}`:''}</span>`).join('')}</td>
+      <td class="num">${fmtBRL(v.frete_tabela)}</td>
+      <td class="num">${fmtBRL(v.valor_total4)}</td>
+      <td><button class="btn-pdf-row" onclick="gerarPdfViagem(${v.viagem_id})">PDF</button></td>
+    </tr>`).join('');
+  document.getElementById('rowCountViagens').textContent = `${sortedV.length} viagem(ns) exibida(s)`;
+
+  const sortedO = [...legs].sort((a,b)=>{
+    let va=a[sortKeyO], vb=b[sortKeyO];
+    if(typeof va==='string') return sortDirO*va.localeCompare(vb);
+    return sortDirO*(va-vb);
+  });
+  document.getElementById('tblOrdens').innerHTML = sortedO.map(l=>`
+    <tr>
+      <td class="viagem-id">#${l.viagem_id}</td>
+      <td>${fmtDate(l.data)}</td>
+      <td>${l.motorista}</td>
+      <td>${l.loja}</td>
+      <td>${l.destino}</td>
+      <td>${l.ordem ?? '-'}</td>
+    </tr>`).join('');
+  document.getElementById('rowCountOrdens').textContent = `${sortedO.length} loja(s)/ordem(ns) exibida(s)`;
+
+  renderCasasBahia();
+}
+
+document.querySelectorAll('#tab-viagens thead th[data-k]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const k = th.dataset.k;
+    if(sortKeyV===k) sortDirV*=-1; else { sortKeyV=k; sortDirV=1; }
+    render();
+  });
+});
+document.querySelectorAll('#tab-ordens thead th[data-k]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const k = th.dataset.k;
+    if(sortKeyO===k) sortDirO*=-1; else { sortKeyO=k; sortDirO=1; }
+    render();
+  });
+});
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+['fLoja','fMotorista','fDe','fAte'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', render);
+});
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  document.getElementById('fLoja').value='';
+  document.getElementById('fMotorista').value='';
+  const dates = uniqueSorted(VIAGENS.map(r=>r.data));
+  document.getElementById('fDe').value = dates[0];
+  document.getElementById('fAte').value = dates[dates.length-1];
+  render();
+});
+
+document.getElementById('btnPdfAll').addEventListener('click', gerarPdfTodas);
+document.getElementById('btnPdfGeral').addEventListener('click', gerarPdfGeral);
+
+populateFilters();
+render();
+</script>
+</body>
+</html>
