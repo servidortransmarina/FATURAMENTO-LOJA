@@ -555,7 +555,7 @@
     <div class="critical-actions">
       <button class="critical-request" id="criticalRequest" hidden>Prévia do e-mail de excedente</button>
       <button class="critical-dismiss" id="criticalDismiss">Entendi</button>
-      <button class="critical-sound" id="criticalSound">Ativar alarme sonoro</button>
+      <button class="critical-sound" id="criticalSound">Ativar áudio e fala</button>
     </div>
     <small class="sound-note">O alarme se repete enquanto esta mensagem crítica estiver pendente. Clique em “Entendi” somente após conferir os detalhes para reconhecê-la e silenciar o alarme. Por segurança, o navegador pode exigir uma interação inicial para liberar o áudio.</small>
   </section>
@@ -914,8 +914,36 @@ function pararAlarmeCritico(){
   if(alertAlarmTimer!==null){clearInterval(alertAlarmTimer);alertAlarmTimer=null;}
   if(alertAudioContext&&alertAudioContext.state==='running') alertAudioContext.suspend().catch(()=>{});
 }
+function obterVozFemininaPtBR(){
+  if(!('speechSynthesis' in window)) return null;
+  const vozes=window.speechSynthesis.getVoices();
+  const portugues=vozes.filter(v=>/^pt[-_]br$/i.test(v.lang));
+  const indiciosFemininos=/(female|feminina|woman|mulher|luciana|francisca|maria|camila|fernanda|google português do brasil)/i;
+  return portugues.find(v=>indiciosFemininos.test(v.name))||portugues[0]||null;
+}
+function falarAlertaCritico(){
+  if(!('speechSynthesis' in window)||!window.SpeechSynthesisUtterance) return false;
+  const agora=new Date().getHours();
+  const saudacao=agora<12?'Bom dia':agora<18?'Boa tarde':'Boa noite';
+  const mensagem=document.getElementById('criticalMessage').textContent.trim();
+  const saldo=document.getElementById('criticalBalance').textContent.trim();
+  const viagens=document.getElementById('criticalTripsCovered').textContent.trim();
+  const texto=`${saudacao}. Crítico. ${mensagem} Saldo atual após retiradas: ${saldo}. Viagens completas que o saldo cobre: ${viagens}.`;
+  try{
+    window.speechSynthesis.cancel();
+    const fala=new SpeechSynthesisUtterance(texto);
+    fala.lang='pt-BR';fala.rate=0.94;fala.pitch=1.08;fala.volume=1;
+    const voz=obterVozFemininaPtBR();
+    if(voz) fala.voice=voz;
+    window.speechSynthesis.speak(fala);
+    return true;
+  }catch(err){console.warn('A fala do alerta não está disponível neste navegador.',err);return false;}
+}
 const EMAIL_PARA='suprimentos.indiretos@casasbahia.com.br';
 const EMAIL_CC=['administrativo@transmarina.com.br','transmarina@transmarina.com.br'];
+function montarQueryUrl(params){
+  return Object.entries(params).map(([chave,valor])=>`${encodeURIComponent(chave)}=${encodeURIComponent(String(valor))}`).join('&');
+}
 
 function obterSaldoAtualParaAntecipacao(){
   if(!DEPOSITOS_CARREGADOS) return {erro:'Saldo não validado: carregue os depósitos reais antes de preparar o e-mail.'};
@@ -955,8 +983,8 @@ function prepararEmailAntecipacao(){
   const saldo=Number(overlay.dataset.saldo);
   const assunto=`Insuficiência de saldo para operações — a partir de ${fmtDate(data)}`;
   const corpo=`Prezados,\n\nInformamos que o saldo disponível para as operações, após as retiradas, é de ${fmtBRL(saldo)}. Devido à falta de saldo suficiente, não será possível manter as operações a partir de ${fmtDate(data)}.\n\nA retomada ocorrerá conforme o calendário programado da próxima semana, respeitando o ciclo de antecipação.\n\nAtenciosamente,\nTransmarina`;
-  const params=new URLSearchParams({to:EMAIL_PARA,cc:EMAIL_CC.join(';'),subject:assunto,body:corpo,login_hint:'operacional@transmarina.com.br'});
-  const link=document.createElement('a');link.href=`https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;link.target='_blank';link.rel='noopener noreferrer';link.style.display='none';
+  const query=montarQueryUrl({to:EMAIL_PARA,cc:EMAIL_CC.join(';'),subject:assunto,body:corpo,login_hint:'operacional@transmarina.com.br'});
+  const link=document.createElement('a');link.href=`https://outlook.office.com/mail/deeplink/compose?${query}`;link.target='_blank';link.rel='noopener noreferrer';link.style.display='none';
   document.body.appendChild(link);link.click();link.remove();overlay.hidden=true;
 }
 
@@ -965,8 +993,8 @@ function abrirEmailExcedente(){
   const x=solicitacaoExcedenteAtual;
   const assunto=`Solicitação de excedente de faturamento semanal — ${fmtDate(x.dini)} a ${fmtDate(x.dfim)}`;
   const corpo=`Prezados,\n\nEm ${new Date().toLocaleDateString('pt-BR')}, o saldo atual após as retiradas para a semana de ${fmtDate(x.dini)} a ${fmtDate(x.dfim)} é de ${fmtBRL(x.saldoAtual)}. O ticket médio é ${fmtBRL(x.ticketMedio)}, cobrindo ${x.viagensCobertas} viagem(ns) completa(s), com ${fmtBRL(x.saldoResidual)} restantes.\n\nCenário até sexta-feira (${fmtDate(x.sexta.data)}): ${x.sexta.viagens} viagem(ns) estimadas, consumo previsto de ${fmtBRL(x.sexta.consumo)}, saldo projetado de ${fmtBRL(x.sexta.saldo)} e excedente estimado de ${fmtBRL(x.sexta.excedente)}.\nCenário até sábado (${fmtDate(x.sabado.data)}): ${x.sabado.viagens} viagem(ns) estimadas, consumo previsto de ${fmtBRL(x.sabado.consumo)}, saldo projetado de ${fmtBRL(x.sabado.saldo)} e excedente estimado de ${fmtBRL(x.sabado.excedente)}.\n\nSolicitamos aprovação de até ${fmtBRL(x.valorSolicitado)} para cobrir o cenário de trabalho até sábado (aproximadamente ${x.viagensAdicionais} viagem(ns) pelo ticket médio atual).\n\nAtenciosamente,\nTransmarina`;
-  const params=new URLSearchParams({to:EMAIL_PARA,cc:EMAIL_CC.join(';'),subject:assunto,body:corpo,login_hint:'operacional@transmarina.com.br'});
-  const url=`https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
+  const query=montarQueryUrl({to:EMAIL_PARA,cc:EMAIL_CC.join(';'),subject:assunto,body:corpo,login_hint:'operacional@transmarina.com.br'});
+  const url=`https://outlook.office.com/mail/deeplink/compose?${query}`;
   const link=document.createElement('a');
   link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.style.display='none';
   document.body.appendChild(link);link.click();link.remove();
@@ -1048,7 +1076,7 @@ function mostrarAlertaCritico(linha,percentual,projecao){
   document.getElementById('criticalRequest').hidden=!solicitacaoExcedenteAtual;
   document.getElementById('sirenEmail').hidden=!solicitacaoExcedenteAtual;
   modal.hidden=false;
-  if(chave!==criticalAlertKey){criticalAlertKey=chave;iniciarAlarmeCritico();}
+  if(chave!==criticalAlertKey){criticalAlertKey=chave;iniciarAlarmeCritico();falarAlertaCritico();}
 }
 
 function ocultarAlertaCritico(){
@@ -1075,7 +1103,8 @@ document.getElementById('criticalSound').addEventListener('click',async()=>{
   alertSoundEnabled=true;
   try{localStorage.setItem('filippini_alert_sound_enabled','1');}catch(_e){}
   liberarAudioCritico();
-  document.getElementById('criticalSound').textContent='Alarme ativado';
+  document.getElementById('criticalSound').textContent='Repetir aviso falado';
+  if(!falarAlertaCritico()) document.getElementById('criticalSound').textContent='Fala indisponível neste navegador';
 });
 // Os navegadores bloqueiam áudio automático até uma interação. A primeira interação libera
 // o som; em seguida, ele se repete enquanto o alerta estiver pendente e aberto.
@@ -1084,7 +1113,7 @@ document.addEventListener('keydown',liberarAudioCritico);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&alertAlarmTimer!==null){liberarAudioCritico();tocarAlertaCritico();}});
 document.getElementById('depositToastClose').addEventListener('click',()=>{document.getElementById('depositToast').hidden=true;});
 try{alertSoundEnabled=localStorage.getItem('filippini_alert_sound_enabled')!=='0';}catch(_e){}
-if(alertSoundEnabled) document.getElementById('criticalSound').textContent='Ativar alarme sonoro';
+if(alertSoundEnabled) document.getElementById('criticalSound').textContent='Ativar áudio e fala';
 
 function buildDepositosFromRows(rows){
   if(!Array.isArray(rows)||!rows.length) return [];
