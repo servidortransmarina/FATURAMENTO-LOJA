@@ -932,7 +932,7 @@ function falarAlertaCritico(){
   try{
     window.speechSynthesis.cancel();
     const fala=new SpeechSynthesisUtterance(texto);
-    fala.lang='pt-BR';fala.rate=0.94;fala.pitch=1.08;fala.volume=1;
+    fala.lang='pt-BR';fala.rate=1.12;fala.pitch=1.03;fala.volume=1;
     const voz=obterVozFemininaPtBR();
     if(voz) fala.voice=voz;
     window.speechSynthesis.speak(fala);
