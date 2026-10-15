@@ -317,6 +317,37 @@
   #advanceEmailCompose:disabled{opacity:.45;cursor:not-allowed}
   #advanceEmailStatus{min-height:22px;font-size:13px;color:#9c191e;font-weight:700}
 
+
+  /* Relatório Casas Bahia integrado ao painel, mantendo a identidade visual Fleet. */
+  .cb-report-card{margin:16px 12px;border:1px solid var(--border);border-top:3px solid #D71920;background:#fff;padding:18px 16px}
+  .cb-report-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;border-bottom:1px solid #d9d9d9;padding-bottom:12px;margin-bottom:12px}
+  .cb-report-head h3{margin:0 0 4px;font-size:18px;color:#17191b}
+  .cb-report-head p,.cb-report-note{margin:0;color:#5f656a;font-size:11px;line-height:1.5}
+  .cb-report-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .cb-report-actions button{border:0;border-radius:7px;background:#D71920;color:#fff;padding:9px 12px;font-weight:800;cursor:pointer}
+  .cb-report-actions button.secondary{background:#17191b}
+  .cb-report-section-title{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.045em;color:#34383c}
+  .cb-report-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:9px;margin:10px 0}
+  .cb-report-kpi{padding:10px 11px;border-left:3px solid #D71920;background:#f5f5f5;min-height:60px}
+  .cb-report-kpi span{display:block;font-size:10px;color:#62676b;margin-bottom:5px}
+  .cb-report-kpi b{font-size:14px;color:#17191b;font-variant-numeric:tabular-nums}
+  .cb-forecast-table{width:100%;border-collapse:collapse;font-size:11px}
+  .cb-forecast-table th,.cb-forecast-table td{padding:7px 8px;border-bottom:1px solid #e3e5e7;text-align:left}
+  .cb-forecast-table th{background:#17191b;color:#fff;font-size:10px;text-transform:uppercase}
+  .cb-forecast-table input{width:90px;padding:6px;border:1px solid #bcc1c5;border-radius:5px;font:inherit}
+  .cb-report-status{margin:8px 0;padding:9px 11px;background:#f3f4f5;border-left:3px solid #777;font-size:11px;line-height:1.45}
+  .cb-report-status.alert{border-color:#D71920;background:#fff2f2;color:#7d171b}
+  .cb-report-status.ok{border-color:#16834b;background:#eff9f2;color:#174b2c}
+  .cb-report-small{font-size:10px;color:#686e73;line-height:1.45;margin:8px 0 0}
+  @media(max-width:600px){.cb-report-card{margin:12px 0;padding:13px 10px}.cb-report-actions{width:100%}.cb-report-actions button{flex:1}}
+  @media print{
+    body *{visibility:hidden!important}
+    #cbFinancialReport,#cbFinancialReport *{visibility:visible!important}
+    #cbFinancialReport{position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;border:0!important;box-shadow:none!important;padding:8mm!important}
+    #cbFinancialReport .cb-report-actions,#cbFinancialReport input{display:none!important}
+    #cbFinancialReport{font-family:Arial,sans-serif;color:#111}
+  }
+
 </style>
 </head>
 <body>
@@ -361,6 +392,7 @@
   <nav class="view-nav" aria-label="Áreas do painel">
     <button class="view-tab active" data-view="operacional">Operacional</button>
     <button class="view-tab" data-view="financeiro">Financeiro</button>
+    <button class="view-tab" data-view="cb">CB</button>
   </nav>
 
   <section id="operationalOverview" class="view-section">
@@ -396,6 +428,48 @@
 
   </section>
 
+  <section id="cbReportView" class="view-section" hidden>
+    <div class="panel full" style="padding:14px;">
+      <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+        <label class="week-picker">Semana do relatório <select id="cbReportWeek" aria-label="Selecionar semana do relatório Casas Bahia"></select></label>
+      </div>
+          <section class="cb-report-card" id="cbFinancialReport" aria-labelledby="cbReportTitle">
+            <div class="cb-report-head">
+              <div><h3 id="cbReportTitle">Relatório financeiro e operacional · Casas Bahia</h3><p id="cbReportPeriod">Período selecionado: —</p></div>
+              <div class="cb-report-actions"><button type="button" id="cbPrintReport">Imprimir / salvar relatório</button><button type="button" class="secondary" id="cbClearForecast">Limpar previsão informada</button></div>
+            </div>
+            <p class="cb-report-note">Documento para acompanhamento gerencial. Os valores realizados refletem os dados carregados no painel; as projeções são estimativas e não representam viagens já executadas.</p>
+            <h4 class="cb-report-section-title">Resumo financeiro da semana</h4>
+            <div class="cb-report-kpis">
+              <div class="cb-report-kpi"><span>Saldo disponível no início do período</span><b id="rptAvailable">—</b></div>
+              <div class="cb-report-kpi"><span>Depósitos registrados na semana</span><b id="rptDeposit">—</b></div>
+              <div class="cb-report-kpi"><span>Consumo realizado até a data-base</span><b id="rptWeeklySpend">—</b></div>
+              <div class="cb-report-kpi"><span>Saldo estimado após o consumo realizado</span><b id="rptCurrentBalance">—</b></div>
+            </div>
+            <h4 class="cb-report-section-title">Viagens realizadas</h4>
+            <div class="cb-report-kpis">
+              <div class="cb-report-kpi"><span>Semana selecionada</span><b id="rptWeekTrips">—</b></div>
+              <div class="cb-report-kpi"><span>Faturamento da semana até a data-base</span><b id="rptWeekBilled">—</b></div>
+              <div class="cb-report-kpi"><span>Mês até a data-base</span><b id="rptMonthTrips">—</b></div>
+              <div class="cb-report-kpi"><span>Faturamento mensal até a data-base</span><b id="rptMonthBilled">—</b></div>
+            </div>
+            <h4 class="cb-report-section-title">Previsão de viagens e necessidade de crédito</h4>
+            <p class="cb-report-note" id="cbForecastGuidance">Informe opcionalmente as viagens previstas para cada dia restante. Dias sem quantidade informada serão estimados pelo ritmo recente; o valor usa o ticket médio da semana selecionada.</p>
+            <div class="table-scroll"><table class="cb-forecast-table"><thead><tr><th>Dia previsto</th><th>Viagens previstas (opcional)</th><th>Critério utilizado</th></tr></thead><tbody id="cbForecastInputs"></tbody></table></div>
+            <div class="cb-report-kpis">
+              <div class="cb-report-kpi"><span>Ticket médio utilizado</span><b id="rptTicket">—</b></div>
+              <div class="cb-report-kpi"><span>Viagens estimadas até sexta-feira</span><b id="rptFridayTrips">—</b></div>
+              <div class="cb-report-kpi"><span>Crédito adicional necessário até sexta</span><b id="rptFridayNeed">—</b></div>
+              <div class="cb-report-kpi"><span>Viagens estimadas até sábado</span><b id="rptSaturdayTrips">—</b></div>
+              <div class="cb-report-kpi"><span>Crédito adicional necessário até sábado</span><b id="rptSaturdayNeed">—</b></div>
+              <div class="cb-report-kpi"><span>Data estimada de esgotamento do crédito</span><b id="rptStopDate">—</b></div>
+            </div>
+            <div class="cb-report-status" id="cbReportValidation" role="status" aria-live="polite">Aguardando validação dos dados financeiros.</div>
+            <p class="cb-report-small" id="cbReportMethod">Critério: crédito anterior + depósito real − consumo; projeção calculada pelo ticket médio e pela quantidade informada ou pelo ritmo recente de viagens. Data-base: —.</p>
+          </section>
+    </div>
+  </section>
+
   <div class="panel full" id="detailPanel">
     <div class="pdf-actions" style="justify-content:flex-end;padding:12px 12px 0;">
       <button class="btn-pdf-geral" id="btnPdfGeral">Baixar resumo executivo em PDF</button>
@@ -426,6 +500,9 @@
             <div class="kpi"><div class="lbl">Crédito após consumo</div><div class="val" id="weekClosingCredit">—</div></div>
             <div class="kpi accent-teal"><div class="lbl">Viagens ainda possíveis</div><div class="val" id="weekTripsPossible">—</div><small class="trip-ticket-note" id="weekTicketNote">Ticket médio: —</small></div>
           </div>
+
+
+
           <div class="balance-equation"><b>Como ler o saldo:</b> saldo trazido da semana anterior + depósito recebido = total disponível; total disponível − consumo semanal = saldo para a próxima semana.</div>
           <div class="deposit-status" id="depositStatus">Carregando depósitos…</div>
           <div class="finance-alert neutral" id="financeAlert" role="status" aria-live="polite">Aguardando os dados para verificar os saldos.</div>
@@ -1483,14 +1560,98 @@ function gerarPdfGeral(){
   doc.save(`resumo_executivo_${de||'inicio'}_a_${ate||'atual'}.pdf`);
 }
 
+
+const CB_FORECAST_STORAGE='cb_forecast_trips_by_week_v1';
+function cbForecastStore(){try{return JSON.parse(localStorage.getItem(CB_FORECAST_STORAGE)||'{}')}catch(_){return {}}}
+function cbForecastSave(data){try{localStorage.setItem(CB_FORECAST_STORAGE,JSON.stringify(data))}catch(_){}}
+function cbIsoParts(iso){const [y,m,d]=iso.split('-').map(Number);return {y,m,d}}
+function cbMonthStart(iso){const {y,m}=cbIsoParts(iso);return `${y}-${String(m).padStart(2,'0')}-01`}
+function cbIsoWeekday(iso){return new Date(`${iso}T12:00:00`).getDay()}
+function cbTripsOnDate(iso){return VIAGENS.filter(v=>v.data===iso)}
+function cbForecastQuantity(iso,pace,manual){
+  if(Object.prototype.hasOwnProperty.call(manual,iso)&&manual[iso]!==''&&Number.isFinite(Number(manual[iso]))) return {quantity:Math.max(0,Math.floor(Number(manual[iso]))),basis:'Quantidade informada'};
+  return {quantity:Math.max(0,Math.round(pace)),basis:'Estimativa pelo ritmo recente'};
+}
+function cbProjectionThrough(endISO,fromISO,pace,manual,ticket){
+  let trips=0,usedManual=false;const day=new Date(`${fromISO}T12:00:00`),end=new Date(`${endISO}T12:00:00`);
+  while(day<=end){const iso=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+    if(day.getDay()!==0){const q=cbForecastQuantity(iso,pace,manual);trips+=q.quantity;usedManual ||= q.basis==='Quantidade informada';}
+    day.setDate(day.getDate()+1);
+  }
+  const cost=trips*ticket;return {trips,cost,usedManual};
+}
+function renderFinancialReport(){
+  const ids=['rptAvailable','rptDeposit','rptWeeklySpend','rptCurrentBalance','rptWeekTrips','rptWeekBilled','rptMonthTrips','rptMonthBilled','rptTicket','rptFridayTrips','rptFridayNeed','rptSaturdayTrips','rptSaturdayNeed','rptStopDate'];
+  const index=Math.max(0,Math.min(CALENDARIO_CB.length-1,Number(document.getElementById('selectedWeek').value)||0));
+  const [depositDate,ini,fim]=CALENDARIO_CB[index],line=calcularLinhasFinanceiras()[index];
+  const now=new Date(),today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const inSelectedWeek=today>=ini&&today<=fim,cutoff=inSelectedWeek?today:(today<ini?ini:fim);
+  const weeklyActual=VIAGENS.filter(v=>v.data>=ini&&v.data<=cutoff);
+  const weeklySpend=weeklyActual.reduce((a,v)=>a+v.valor_total4,0),ticket=weeklyActual.length?weeklySpend/weeklyActual.length:0;
+  const monthStart=cbMonthStart(ini),monthCutoff=today<monthStart?monthStart:(today<fim?today:fim);
+  const monthly=VIAGENS.filter(v=>v.data>=monthStart&&v.data<=monthCutoff),monthlySpend=monthly.reduce((a,v)=>a+v.valor_total4,0);
+  const manualAll=cbForecastStore(),manual=manualAll[ini]||{};
+  const forecastBody=document.getElementById('cbForecastInputs');
+  const nextISO=cbIsoDatePlus(cutoff,1),fridayCandidate=cbIsoDatePlus(ini,4),saturdayCandidate=cbIsoDatePlus(ini,5),weekFriday=fridayCandidate>fim?fim:fridayCandidate,weekSaturday=saturdayCandidate>fim?fim:saturdayCandidate;
+  const recentDays=new Set(weeklyActual.filter(v=>v.valor_total4>=0).map(v=>v.data)).size;
+  const pace=recentDays?weeklyActual.length/recentDays:0;
+  const futureDates=[];let cur=new Date(`${nextISO}T12:00:00`),end=new Date(`${weekSaturday}T12:00:00`);
+  while(cur<=end){if(cur.getDay()!==0)futureDates.push(`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`);cur.setDate(cur.getDate()+1)}
+  if(!futureDates.length){forecastBody.innerHTML='<tr><td colspan="3">Não há dias restantes nesta semana para informar previsão.</td></tr>';}
+  else forecastBody.innerHTML=futureDates.map(d=>`<tr><td>${fmtDate(d)}</td><td><input type="number" min="0" step="1" inputmode="numeric" aria-label="Previsão de viagens para ${fmtDate(d)}" data-forecast-date="${d}" value="${manual[d]??''}" placeholder="Opcional"></td><td>${manual[d]!=null&&manual[d]!==''?'Quantidade informada':'Ritmo recente, se não informado'}</td></tr>`).join('');
+  forecastBody.querySelectorAll('[data-forecast-date]').forEach(input=>input.addEventListener('change',()=>{const all=cbForecastStore();all[ini]=all[ini]||{};if(input.value==='')delete all[ini][input.dataset.forecastDate];else all[ini][input.dataset.forecastDate]=String(Math.max(0,Math.floor(Number(input.value)||0)));cbForecastSave(all);renderFinancialReport();}));
+  document.getElementById('cbReportPeriod').textContent=`Semana selecionada: ${fmtDate(ini)} a ${fmtDate(fim)} · Período mensal: ${fmtDate(monthStart)} a ${fmtDate(monthCutoff)} · Data-base: ${fmtDate(cutoff)}`;
+  document.getElementById('rptAvailable').textContent=line.totalDisponivel==null?'Não validado':fmtBRL(line.totalDisponivel);
+  document.getElementById('rptDeposit').textContent=line.deposito==null?'Não validado':fmtBRL(line.deposito);
+  document.getElementById('rptWeeklySpend').textContent=fmtBRL(weeklySpend);
+  const balanceNow=line.totalDisponivel==null?null:line.totalDisponivel-weeklySpend;
+  document.getElementById('rptCurrentBalance').textContent=balanceNow==null?'Não validado':fmtBRL(balanceNow);
+  document.getElementById('rptWeekTrips').textContent=`${weeklyActual.length} viagem(ns)`;
+  document.getElementById('rptWeekBilled').textContent=fmtBRL(weeklySpend);
+  document.getElementById('rptMonthTrips').textContent=`${monthly.length} viagem(ns)`;
+  document.getElementById('rptMonthBilled').textContent=fmtBRL(monthlySpend);
+  document.getElementById('rptTicket').textContent=ticket>0?fmtBRL(ticket):'Indisponível';
+  const friday=weekFriday,saturday=weekSaturday;
+  const throughFriday=friday<nextISO?null:cbProjectionThrough(friday, nextISO, pace, manual, ticket);
+  const throughSaturday=saturday<nextISO?null:cbProjectionThrough(saturday,nextISO,pace,manual,ticket);
+  function setScenario(prefix,scenario){
+    document.getElementById(prefix+'Trips').textContent=scenario?`${scenario.trips} viagem(ns) estimada(s)`:'Período encerrado';
+    const needed=scenario&&balanceNow!=null&&ticket>0?Math.max(0,scenario.cost-Math.max(0,balanceNow)):null;
+    document.getElementById(prefix+'Need').textContent=needed==null?(scenario&&balanceNow==null?'Saldo não validado':scenario&&ticket<=0?'Ticket indisponível':'—'):fmtBRL(needed);
+    return {scenario,needed};
+  }
+  const fri=setScenario('rptFriday',throughFriday),sat=setScenario('rptSaturday',throughSaturday);
+  document.getElementById('cbForecastGuidance').textContent=`Ticket médio calculado sobre ${weeklyActual.length} viagem(ns) da semana até ${fmtDate(cutoff)}. Ritmo recente: ${pace.toFixed(1)} viagem(ns) por dia com operação; em cada dia, a quantidade informada substitui a estimativa.`;
+  let stopText='Não projetado até sábado',statusClass='ok';
+  if(line.totalDisponivel==null){stopText='Não estimável — depósitos não validados';statusClass='';}
+  else if(balanceNow<=0){
+    let run=line.totalDisponivel,stop=null;const byDate=new Map();weeklyActual.forEach(v=>byDate.set(v.data,(byDate.get(v.data)||0)+v.valor_total4));
+    [...byDate.keys()].sort().some(d=>{run-=byDate.get(d);if(run<=0){stop=d;return true}return false});stopText=stop?`${fmtDate(stop)} · estimativa pelo consumo registrado`:'Crédito esgotado; data não identificada nos registros';statusClass='alert';
+  }else if(ticket>0){
+    let run=balanceNow,stop=null;
+    for(const d of futureDates){const q=cbForecastQuantity(d,pace,manual);run-=q.quantity*ticket;if(run<=0){stop=d;break}}
+    if(stop){stopText=`${fmtDate(stop)} · estimativa`;statusClass='alert'}
+  }else{stopText='Não estimável — ticket médio indisponível';statusClass=''}
+  document.getElementById('rptStopDate').textContent=stopText;
+  const validation=document.getElementById('cbReportValidation');
+  let msg;
+  if(!DEPOSITOS_CARREGADOS){msg='Saldo não validado: os depósitos reais não foram carregados. Consumo e viagens permanecem visíveis, mas saldo disponível, necessidade de crédito e data de esgotamento não devem ser usados para decisão.';statusClass='alert';}
+  else if((fri.needed||0)>0||(sat.needed||0)>0){msg=`A projeção indica necessidade adicional de até ${fmtBRL(Math.max(fri.needed||0,sat.needed||0))} para manter a operação até sábado, conforme o cenário de viagens informado/estimado.`;statusClass='alert';}
+  else msg='Com os dados carregados, o crédito atual cobre a projeção considerada até sábado. A previsão deve ser revisada quando houver nova quantidade de viagens ou depósitos.';
+  validation.textContent=msg;validation.className='cb-report-status '+statusClass;
+  document.getElementById('cbReportMethod').textContent=`Critério de cálculo: crédito anterior + depósito real − viagens realizadas; projeção pelo ticket médio semanal. Quantidades informadas manualmente prevalecem; dias sem informação usam o ritmo recente. Data-base: ${fmtDate(cutoff)}. Relatório atualizado em ${now.toLocaleString('pt-BR')}.`;
+}
+function cbIsoDatePlus(iso,days){const d=new Date(`${iso}T12:00:00`);d.setDate(d.getDate()+days);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+
 function initWeekSelector(){
-  const el=document.getElementById('selectedWeek');
+  const el=document.getElementById('selectedWeek'),reportEl=document.getElementById('cbReportWeek');
   const today=new Date(),iso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  el.innerHTML=CALENDARIO_CB.map(([d,ini,fim],i)=>`<option value="${i}">Semana ${fmtDate(ini)} a ${fmtDate(fim)}</option>`).join('');
+  const options=CALENDARIO_CB.map(([d,ini,fim],i)=>`<option value="${i}">Semana ${fmtDate(ini)} a ${fmtDate(fim)}</option>`).join('');
+  el.innerHTML=options;if(reportEl)reportEl.innerHTML=options;
   let i=CALENDARIO_CB.findIndex(([,ini,fim])=>iso>=ini&&iso<=fim);
   if(i<0)i=CALENDARIO_CB.findIndex(([,ini])=>ini>iso);
   if(i<0)i=CALENDARIO_CB.length-1;
-  el.value=String(i);
+  el.value=String(i);if(reportEl)reportEl.value=String(i);
 }
 function renderWeeklyIndicators(){
   if(!document.getElementById('selectedWeek')) return;
@@ -1542,6 +1703,7 @@ function renderWeeklyIndicators(){
   document.getElementById('weekClosingCredit').textContent=line.saldo==null?'Não validado':fmtBRL(line.saldo);
   document.getElementById('weekTripsPossible').textContent=possible;
   document.getElementById('weekTicketNote').textContent=avg>0?`Ticket médio: ${fmtBRL(avg)}`:'Ticket médio indisponível sem viagens';
+   renderFinancialReport();
   document.querySelector('.balance-equation').innerHTML=!DEPOSITOS_CARREGADOS?'<b>Saldo não validado:</b> os depósitos reais não foram carregados. Crédito anterior, total disponível, crédito após consumo e viagens possíveis ficam sem valor até validar a aba de depósitos. O consumo da semana permanece visível separadamente.':`<b>Ciclo do crédito:</b> ${fmtBRL(line.saldoAnterior)} de crédito anterior + ${fmtBRL(line.deposito)} de depósito = ${fmtBRL(line.totalDisponivel)} disponíveis; menos ${fmtBRL(current?consumed:line.consumo)} consumidos${current?' até hoje':''} = ${fmtBRL(line.totalDisponivel-(current?consumed:line.consumo))}. As viagens possíveis usam o ticket médio das viagens registradas na semana.`;
 }
 
@@ -1676,16 +1838,21 @@ document.querySelectorAll('#tab-ordens thead th[data-k]').forEach(th=>{
 
 function selecionarVisao(view){
   document.querySelectorAll('.view-tab,[data-view]').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
-  const financeiro=view==='financeiro';
-  document.getElementById('operationalOverview').hidden=financeiro;
+  const financeiro=view==='financeiro',cb=view==='cb';
+  document.getElementById('operationalOverview').hidden=financeiro||cb;
   document.getElementById('tab-casasbahia').hidden=!financeiro;
-  document.getElementById('tab-operacional').hidden=financeiro;
+  document.getElementById('tab-operacional').hidden=financeiro||cb;
+  document.getElementById('detailPanel').hidden=cb;
+  document.getElementById('cbReportView').hidden=!cb;
   document.getElementById('tab-casasbahia').classList.toggle('active',financeiro);
-  document.getElementById('tab-operacional').classList.toggle('active',!financeiro);
-  if(!financeiro) setTimeout(()=>Object.values(charts).forEach(c=>c.resize()),0);
+  document.getElementById('tab-operacional').classList.toggle('active',!financeiro&&!cb);
+  if(!financeiro&&!cb) setTimeout(()=>Object.values(charts).forEach(c=>c.resize()),0);
 }
 document.querySelectorAll('[data-view]').forEach(tab=>tab.addEventListener('click',()=>selecionarVisao(tab.dataset.view)));
-document.getElementById('selectedWeek').addEventListener('change',render);
+document.getElementById('selectedWeek').addEventListener('change',()=>{document.getElementById('cbReportWeek').value=document.getElementById('selectedWeek').value;render();});
+document.getElementById('cbReportWeek').addEventListener('change',()=>{document.getElementById('selectedWeek').value=document.getElementById('cbReportWeek').value;render();});
+document.getElementById('cbPrintReport').addEventListener('click',()=>window.print());
+document.getElementById('cbClearForecast').addEventListener('click',()=>{const index=Number(document.getElementById('selectedWeek').value)||0,ini=CALENDARIO_CB[index]?.[1];const all=cbForecastStore();if(ini)delete all[ini];cbForecastSave(all);renderFinancialReport();});
 document.querySelectorAll('[data-subtab]').forEach(tab=>tab.addEventListener('click',()=>{
   document.querySelectorAll('[data-subtab]').forEach(t=>t.classList.toggle('active',t===tab));
   ['viagens','ordens'].forEach(id=>{const pane=document.getElementById('tab-'+id);pane.classList.toggle('active',id===tab.dataset.subtab);});
